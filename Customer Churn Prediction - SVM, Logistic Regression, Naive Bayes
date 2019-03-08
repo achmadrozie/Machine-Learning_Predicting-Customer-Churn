@@ -1,0 +1,376 @@
+'''##IMPORT LIBRARY ##'''
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import cross_val_score
+#svm_libs
+from sklearn.svm import SVC
+#conf_libs
+from sklearn.metrics import confusion_matrix, classification_report
+
+'''### INPUT DATA ###'''
+missing_values = ["#DIV/0!","nan"]
+data = pd.read_csv("preprocessed data.csv", na_values=missing_values)
+
+
+'''### DATA CLEANING ###'''
+#visualize data kosong
+#[sns.heatmap(data.isnull())]
+#[data[data['dataperuser'=='nan']].sum()]
+r = .9
+
+#mean per kolom
+vpu_mean = data['voice'].mean()
+spu_mean = data['sms'].mean()
+dapu_mean = data['data'].mean()
+dpu_mean = data['digi'].mean()
+payload_mean = data['payload'].mean()
+
+vpu_mean = int(vpu_mean)
+spu_mean = int(spu_mean)
+dapu_mean = int(dapu_mean)
+dpu_mean = int(dpu_mean)
+payload_mean = int(payload_mean)
+
+#filling NaN
+data['voice'].fillna(vpu_mean, inplace=True)
+data['sms'].fillna(spu_mean, inplace=True)
+data['data'].fillna(dapu_mean, inplace=True)
+data['digi'].fillna(dpu_mean, inplace=True)
+data['payload'].fillna(payload_mean, inplace=True)
+
+#Outlier Detection
+def find_outlier_tukey (x):
+    q1 = np.percentile(x, 25)
+    q3 = np.percentile(x, 75)
+    iqr = q3-q1
+    floor = q1 - 1.5*iqr
+    ceiling = q3 + 1.5 * iqr
+    outlier_indices = list(x.index[(x<floor)|(x>ceiling)])
+    outlier_values = list(x[outlier_indices])
+    return (q1, q3, iqr, floor, ceiling, len(outlier_values))
+
+'''#Removing_Outlier'''
+## dijalankan per iterasi
+##iterasi 1
+q1 = np.percentile(data['voice'], 25)
+q3 = np.percentile(data['voice'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+voice1 = data[data['voice']>floor]
+voice2 = voice1[data['voice']<ceiling]
+
+##iterasi2 - sms
+q1 = np.percentile(voice2['sms'], 25)
+q3 = np.percentile(voice2['sms'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+sms1 = voice2[voice2['sms']>floor]
+sms2 = sms1[sms1['sms']>floor]
+
+##iterasi 3 - dataperuser
+q1 = np.percentile(data['data'], 25)
+q3 = np.percentile(data['data'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+data1 = sms2[sms2['data']>floor]
+data2 = data1[data1['data']<ceiling]
+
+##iterasi4 - digiperuser
+q1 = np.percentile(data2['digi'], 25)
+q3 = np.percentile(data2['digi'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+digi1 = data2[data2['digi']>floor]
+digi2 = digi1[digi1['digi']<ceiling]
+
+##iterasi 5 - payload1
+q1 = np.percentile(digi2['payload'], 25)
+q3 = np.percentile(digi2['payload'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+pload1 = digi2[digi2['payload']>floor]
+pload2 = pload1[pload1['payload']<ceiling]
+
+#iterasi 6- payload2
+q1 = np.percentile(pload2['payload'], 25)
+q3 = np.percentile(pload2['payload'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+pload3 = pload2[pload2['payload']>floor]
+pload4 = pload3[pload3['payload']<ceiling]
+
+#iterasi 7 - payload3
+q1 = np.percentile(pload4['payload'], 25)
+q3 = np.percentile(pload4['payload'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+pload5 = pload4[pload4['payload']>floor]
+pload6 = pload5[pload5['payload']<ceiling]
+
+#iterasi 8 - payload4
+q1 = np.percentile(pload6['payload'], 25)
+q3 = np.percentile(pload6['payload'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+pload7 = pload6[pload6['payload']>floor]
+pload8 = pload7[pload7['payload']<ceiling]
+
+#iterasi 9 - payload5
+q1 = np.percentile(pload8['payload'], 25)
+q3 = np.percentile(pload8['payload'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+pload9 = pload8[pload8['payload']>floor]
+pload10 = pload9[pload9['payload']<ceiling]
+
+#iterasi 10 - digi2
+##payloadperuser
+q1 = np.percentile(pload8['digi'], 25)
+q3 = np.percentile(pload8['digi'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+digi3 = pload8[pload8['digi']>floor]
+digi4 = digi3[digi3['digi']<ceiling]
+
+#iterasi 11 - digi3
+q1 = np.percentile(pload3['digi'], 25)
+q3 = np.percentile(pload3['digi'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+digi5 = digi4[digi4['digi']>floor]
+digi6 = digi5[digi5['digi']<ceiling]
+
+#iterasi 12 - digi4
+q1 = np.percentile(digi6['digi'], 25)
+q3 = np.percentile(digi6['digi'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+digi7 = digi6[digi6['digi']>floor]
+digi8 = digi7[digi7['digi']<ceiling]
+
+#iterasi 13 - digi5
+q1 = np.percentile(digi8['digi'], 25)
+q3 = np.percentile(digi8['digi'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+digi9 = digi8[digi8['digi']>floor]
+digi10 = digi9[digi9['digi']<ceiling]
+
+#iterasi 14 - sms
+q1 = np.percentile(digi10['sms'], 25)
+q3 = np.percentile(digi10['sms'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+sms3 = digi10[digi10['sms']>floor]
+sms4 = sms3[sms3['sms']<ceiling]
+
+#iterasi 15 - payload6
+q1 = np.percentile(sms4['payload'], 25)
+q3 = np.percentile(sms4['payload'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+pload11 = sms4[sms4['payload']>floor]
+pload12 = pload11[pload11['payload']<ceiling]
+
+#iterasi 16 - pload7
+q1 = np.percentile(pload12['payload'], 25)
+q3 = np.percentile(pload12['payload'], 75)
+iqr = q3-q1
+floor = q1 - 1.5*iqr
+ceiling = q3 + 1.5 * iqr
+pload13 = pload12[pload12['payload']>floor]
+new_data = pload13[pload13['payload']<ceiling]
+
+
+'''### DATA CLEANING ###'''
+
+X = new_data.iloc[:,[0,1,2,3,4,5]]
+y = new_data.iloc[:,6]
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=0)
+
+'''### DATA VISUALISASI 1 ###'''
+sns.heatmap(new_data.corr(),annot=True)
+
+
+'''### Menentukan Variabel Paling Signifikan ###'''
+X = new_data.iloc[:,[0,1,3,4,5]]
+y = new_data.iloc[:,6]
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=0)
+
+
+#Feature scaling
+from sklearn.preprocessing import MinMaxScaler
+sc_X = MinMaxScaler()
+X = sc_X.fit_transform(X)
+
+import statsmodels.api as sm
+logit_model=sm.Logit(y,X)
+result=logit_model.fit()
+print(result.summary2())
+
+'''### DATA VISUALISASI 2 ###'''
+sns.pairplot(new_data.iloc[:,[0,1,2,6]],hue='CHURN',palette='mako')
+
+'''Metode Type 1 - Regression Logistic'''
+from sklearn.linear_model import LogisticRegression
+log_performance = []
+cr_log=[]
+cm_log=[]
+
+penalty = ['l1','l2']
+for i in penalty:
+        #membangun model
+        classifier = LogisticRegression(C=1, penalty= i,random_state = 101)
+        classifier.fit(X_train,y_train)
+        predict1 = classifier.predict(X_test)
+        log_cr = classification_report(y_test,predict1)
+        log_cm = confusion_matrix(y_test,predict1)
+        
+        #ukur performansi
+        log_cr = classification_report(y_test,predict1)
+        log_cm = confusion_matrix(y_test,predict1)
+        
+        log_acc = cross_val_score(estimator = classifier, X=X_train, y=y_train, scoring='accuracy', cv=10)*r
+        log_recal = cross_val_score(estimator=classifier, X=X_train, y=y_train, scoring = "recall", cv=10)*r
+        log_prec = cross_val_score(estimator=classifier, X=X_train, y=y_train, scoring = "precision", cv=10)*r
+        log_f1 = cross_val_score(estimator=classifier, X=X_train, y=y_train, scoring = "f1", cv=10)*r
+        log_me = 1-log_acc
+        
+        #rekap performansi
+        acc_log = [log_acc.mean(), log_recal.mean(), log_prec.mean(), log_f1.mean(), log_me.mean()]
+        
+        #hasil Logistic Regression
+        log_performance.append(acc_log)
+        cr_log.append(log_cr)
+ 
+
+'''Metode Type 2 - Support Vector Machine'''
+svm_kernel = ['linear','rbf','poly'] #i
+svm_c = [0.1,1,10,100] #j
+svm_rbf_gamma = [0.1,0.25,0.5,0.75] #k
+svm_poly_degree = [2,3,5,7]#m
+
+svm_performance = []
+cr_svm = []
+cm_svm = []
+for i in svm_kernel:
+    if i == 'linear':
+        for j in svm_c:
+            #membangun model
+            classifier = SVC(C=j, kernel='linear',random_state=101)
+            classifier.fit(X_train,y_train)
+            predict1 = classifier.predict(X_test)
+                        
+            #ukur performansi model
+            svm_cr = classification_report(y_test,predict1)
+            svm_cm = confusion_matrix(y_test,predict1)
+            
+            svm_acc = cross_val_score(estimator=classifier,X=X_train, y=y_train, cv=10)*r
+            svm_recal = cross_val_score(estimator=classifier, X=X_train, y=y_train, scoring = "recall", cv=10)*r
+            svm_prec = cross_val_score(estimator=classifier, X=X_train, y=y_train, scoring = "precision", cv=10)*r
+            svm_f1 = cross_val_score(estimator=classifier, X=X_train, y=y_train, scoring = "f1", cv=10)*r
+            svm_me = 1 - svm_acc
+            
+            #rekap performansi
+            svm_linear = [i,j,' ', svm_acc.mean(),svm_recal.mean(), svm_prec.mean(), svm_f1.mean(), svm_me.mean()]
+            
+            #hasil performansi
+            svm_performance.append(svm_linear)
+            cr_svm.append(svm_cr)
+            
+    elif i == 'rbf':
+        for j in svm_c:
+            for k in svm_rbf_gamma:
+                #membangun model
+                classifier = SVC(C=j, kernel='rbf',gamma=k, random_state=101)
+                classifier.fit(X_train,y_train)
+                predict1 = classifier.predict(X_test)       
+                
+                #ukur performansi model
+                svm_cr = classification_report(y_test,predict1)
+                svm_cm = confusion_matrix(y_test,predict1)    
+                
+                svm_acc = cross_val_score(estimator=classifier,X=X_train, y=y_train, cv=10)*r
+                svm_recal = cross_val_score(estimator=classifier, X=X_train, y=y_train, scoring = "recall", cv=10)*r
+                svm_prec = cross_val_score(estimator=classifier, X=X_train, y=y_train, scoring = "precision", cv=10)*r
+                svm_f1 = cross_val_score(estimator=classifier,X=X_train, y=y_train, scoring = "f1", cv=10)*r
+                svm_me = 1 - svm_acc
+                
+                #rekap performansi
+                svm_rbf = [i,j,k,svm_acc.mean(),svm_recal.mean(), svm_prec.mean(), svm_f1.mean(), svm_me.mean()]
+                
+                #hasil performansi
+                svm_performance.append(svm_rbf)
+                cr_svm.append(svm_cr)
+    else:
+        for j in svm_c:
+            for m in svm_poly_degree:
+                
+                classifier = SVC(C=j, kernel='poly',degree=m, random_state=101)
+                classifier.fit(X_train,y_train)
+                predict1 = classifier.predict(X_test)
+                
+                #ukur performansi
+                svm_cr = classification_report(y_test,predict1)
+                svm_cm = confusion_matrix(y_test,predict1)
+                
+                svm_acc = cross_val_score(estimator=classifier,X=X_train, y=y_train, cv=10)*r
+                svm_recal = cross_val_score(estimator=classifier, X=X_train, y=y_train, scoring = "recall", cv=10)*r
+                svm_prec = cross_val_score(estimator=classifier, X=X_train, y=y_train, scoring = "precision", cv=10)*r
+                svm_f1 = cross_val_score(estimator=classifier, X=X_train, y=y_train, scoring = "f1", cv=10)*r
+                svm_me = 1 - svm_acc
+                
+                #rekap performansi
+                svm_poly = [i,j, m,svm_acc.mean(),svm_recal.mean(), svm_prec.mean(), svm_f1.mean(), svm_me.mean()]
+                
+                #hasil performansi
+                svm_performance.append(svm_poly)
+                cr_svm.append(svm_cr)
+   
+   pd.DataFrame(svm_performance)
+   
+
+'''Metode Type 3 - Naive Bayes'''
+
+nb_performance = []
+from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import mean_squared_error
+
+classifier = GaussianNB()
+classifier.fit(X_train,y_train)
+predict1 = classifier.predict(X_test)
+
+nb_cr = classification_report(predict1, y_test)
+nb_cm = confusion_matrix(predict1, y_test)
+
+nb_acc = cross_val_score(estimator = classifier,X=X, y=y, scoring='accuracy', cv=10)*r
+nb_recal = cross_val_score(estimator=classifier, X=X, y=y, scoring = "recall", cv=10)*r
+nb_prec = cross_val_score(estimator=classifier, X=X, y=y, scoring = "precision", cv=10)*r
+nb_f1 = cross_val_score(estimator=classifier,X=X, y=y, scoring = "f1", cv=10)*r
+nb_me = 1-nb_acc
+
+#hasil
+a = [nb_acc.mean(), nb_recal.mean(), nb_prec.mean(), nb_f1.mean(),nb_me.mean()]
+            
